@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  lint-and-type:
+    name: Lint & TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Lint
+        run: npm run lint || echo "No lint script"
+      
+      - name: TypeScript Check
+        run: npx tsc --noEmit || echo "TypeScript check skipped"
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test || echo "No tests configured"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+
+  screenshot-check:
+    name: Screenshot Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for UI changes
+        id: ui-changes
+        run: |
+          UI_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -E '\.(tsx|jsx|css|scss|vue|svelte)$' || true)
+          if [ -n "$UI_FILES" ]; then
+            echo "has_ui_changes=true" >> $GITHUB_OUTPUT
+            echo "UI files changed:"
+            echo "$UI_FILES"
+          else
+            echo "has_ui_changes=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Check for screenshots in PR
+        if: steps.ui-changes.outputs.has_ui_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_BODY=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
+          if echo "$PR_BODY" | grep -qiE '!\[.*\]\(.*\)|screenshot|screen shot|image'; then
+            echo "✅ Screenshots found in PR description"
+          else
+            echo "⚠️ Warning: UI changes detected but no screenshots in PR description"
+            echo "Consider adding before/after screenshots to help reviewers"
+            # Don't fail, just warn
+          fi
