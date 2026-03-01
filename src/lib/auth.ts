@@ -1,9 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
 }
 const SALT_ROUNDS = 10;
 
@@ -31,7 +34,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Generate a JWT token for a user
  */
 export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId }, getJwtSecret(), { expiresIn: '7d' });
 }
 
 /**
@@ -39,7 +42,7 @@ export function generateToken(userId: string): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, getJwtSecret()) as JWTPayload;
   } catch {
     return null;
   }
